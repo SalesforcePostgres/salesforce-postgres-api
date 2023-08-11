@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:salesforce="http://www.mulesoft.org/schema/mule/salesforce"
+	xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd 
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/salesforce http://www.mulesoft.org/schema/mule/salesforce/current/mule-salesforce.xsd">
+	<db:config name="Database_Config" doc:name="Database Config" doc:id="4126e7e7-4758-4f5d-9cab-4e12ad18b878" >
+		<db:generic-connection url="jdbc:postgresql://localhost:5455/postgresDB" driverClassName="org.postgresql.Driver" user="postgres" password="postgres" />
+	</db:config>
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="5195e336-f0d3-434a-807b-d0a585a4d7f2" >
+		<http:listener-connection host="0.0.0.0" port="8085" />
+	</http:listener-config>
+	
+	<salesforce:sfdc-config name="Salesforce_Config" doc:name="Salesforce Config" doc:id="6e33e94c-100a-42e7-808a-8556b33e34a8" >
+		<salesforce:basic-connection username="speriyala@open-logix.com" password="Psmohan@345" securityToken="tteFkELOdIp77cBbFZFucNh6K" />
+	</salesforce:sfdc-config>
+	
+	<flow name="cust-bulk-insert-flowFlow" doc:id="ad59f0f9-d8f0-4ac5-ab0c-dceaf53d2be1" >
+		<http:listener doc:name="Listener" doc:id="b820dfc1-82ac-4e76-9046-da3121e6a4d6" config-ref="HTTP_Listener_config" path="/dbdata" allowedMethods="POST"/>
+		<logger level="INFO" doc:name="Logger" doc:id="5f6c1e40-6041-435e-acb3-570e0ed67dd1" />
+		<set-variable value="#[payload]" doc:name="varPayload" doc:id="088d80de-f6c2-435c-bf44-bacac469669c" variableName="varPayload" />
+		<db:bulk-insert doc:name="Bulk insert" doc:id="d5ad33ee-70da-4f23-9426-4d572ad25707" config-ref="Database_Config">
+			<db:sql ><![CDATA[insert into cust_post_details(firstName,lastName,contactType,countryCode,mobile,passwrd,email,confirmPassword,acceptDataPolicy,recieveNews,acceptPIC,locale,captchatoken,recieveClaimsettle,custid) values (:firstName, :lastName, :contactType, :countryCode, :mobile, :passwrd, :email, :confirmPassword, :acceptDataPolicy, :recieveNews, :acceptPIC, :locale, :captchatoken, :recieveClaimsettle , :custid)]]></db:sql>
+		</db:bulk-insert>
+		<ee:transform doc:name="Transform Message" doc:id="33236ea3-5fbf-4170-8698-179269eed328">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+vars.varPayload
+]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+<!-- [STUDIO:"salesforce-postgres-integrationFlowRef"]		<flow-ref doc:name="salesforce-postgres-integrationFlowRef" doc:id="425978ab-a92c-4ee4-ab85-9887cc143830" name="salesforce-postgres-integrationFlow"/> [STUDIO] -->
+		<logger level="INFO" doc:name="end Log" doc:id="ee7458a6-d3c4-4e15-bb89-85b1d50dabd6" message="end Sapi" />
+	
+</flow>
+	
+	<flow name="salesforce-postgres-integrationFlow" doc:id="6fd46acc-2060-430f-81c5-f48a76f28d92" >
+		<db:listener doc:name="On Table Row" doc:id="fd42f047-ca3a-4ded-988b-a9611b86f72b" config-ref="Database_Config" table="cust_post_details" watermarkColumn="creationdate" idColumn="custid">
+			<scheduling-strategy>
+				<fixed-frequency frequency="100"/>
+			</scheduling-strategy>
+		</db:listener>
+		<ee:transform doc:name="Transform Message" doc:id="f3627972-bf09-4134-aa63-269ad6df4cb1">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<salesforce:upsert objectType="CustomerONB__c" externalIdFieldName="CustId__c" doc:name="Upsert" doc:id="13b520a2-ce09-44ef-b499-8004e5a7cbf1" config-ref="Salesforce_Config">
+			<salesforce:records><![CDATA[#[[{
+	firstName__c: payload.firstname,
+	lastName__c: payload.lastname,
+	contactType__c: payload.contacttype,
+	email__c: payload.email,
+	acceptDataPolicy__c: payload.acceptdatapolicy,
+	acceptPIC__c: payload.acceptpic,
+	captchatoken__c: payload.captchatoken,
+	countryCode__c: payload.countrycode,
+	locale__c: payload.locale,
+	mobile__c: payload.mobile,
+	password__c: payload.password,
+	recieveClaimsettle__c: payload.recieveclaimsettle,
+	recieveNews__c: payload.recievenews ,
+    	custId__c: payload.custid
+}]]]]></salesforce:records>
+		</salesforce:upsert>
+		<logger level="INFO" doc:name="Logger" doc:id="8ed9c6ad-12c5-43a9-8cb2-f8c3321e3e73" message="#[payload]"/>
+	</flow>
+	
+</mule>

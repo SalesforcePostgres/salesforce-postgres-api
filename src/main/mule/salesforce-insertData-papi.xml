@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<http:listener-config name="HTTP_Listener_config1" doc:name="HTTP Listener config" doc:id="a9d29114-69b3-467a-a839-0882113b0fa1" >
+		<http:listener-connection host="0.0.0.0" port="9085" />
+	</http:listener-config>
+	<http:request-config name="HTTP_Request_configuration" doc:name="HTTP Request configuration" doc:id="3ec05849-839b-40eb-8dd2-b536dfb20691" >
+		<http:request-connection host="localhost" port="8085"/>
+	</http:request-config>
+	<flow name="salesforce-insertData-papiFlow" doc:id="5b90a70b-26a7-43e3-af85-c38862fc3723" >
+		<http:listener doc:name="Listener" doc:id="a5e7355e-8f11-4f67-88eb-fd525546b144" config-ref="HTTP_Listener_config1" path="/integration"/>
+		<ee:transform doc:name="initializeVariable" doc:id="a742d9ff-9d40-4661-a072-8e005d61600f" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+ payload : payload,	
+ headers : attributes.headers,
+ queryParams: attributes.queryParams,
+ uriParams : attributes.uriParams
+}]]></ee:set-payload>
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="requestData" ><![CDATA[%dw 2.0
+output application/java
+---
+{
+}]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<logger level="INFO" doc:name="startLogger" doc:id="ab56e2c9-658b-40f8-8be2-df9b1f192b22" message='#[%dw 2.0&#10;output application/json indent = false&#10;---&#10;{ 	&#10;    TimeStamp: (now() &gt;&gt; "IST"),&#10;    AppName: app.name, 	&#10;    FlowName: flow.name, 	&#10;    BusinessProcessName:  "Salesforce Postgres Integration", 	&#10;    Category:  "Customer", 	&#10;    OriginatingApplication:  "System API", 	&#10;    DesignationApplication:  "Salesforce", 	&#10;    CustomerId: "NA", 	&#10;    txState:  "START"&#10;}]'/>
+		<ee:transform doc:name="Transform Message" doc:id="a8da8dfd-4e9a-4e6d-a6a8-77bf2dc21cc8" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload.payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<http:request method="POST" doc:name="sapiRequest" doc:id="c54a5053-3aaa-4ea9-9bd5-19d31afa1518" config-ref="HTTP_Request_configuration" path="/dbdata" responseTimeout="120000">
+		</http:request>
+		<logger level="INFO" doc:name="endLogger" doc:id="67f47b42-3bfa-44c7-916c-f94a2f32e2f7" message="PAPI ends"/>
+	</flow>
+</mule>

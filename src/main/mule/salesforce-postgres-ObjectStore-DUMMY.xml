@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:salesforce="http://www.mulesoft.org/schema/mule/salesforce"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns:os="http://www.mulesoft.org/schema/mule/os"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/os http://www.mulesoft.org/schema/mule/os/current/mule-os.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/salesforce http://www.mulesoft.org/schema/mule/salesforce/current/mule-salesforce.xsd">
+	<http:listener-config name="HTTP_Listener_config_int" doc:name="HTTP Listener config" doc:id="43a58d5f-913e-4162-a63e-2a6ab87bca72" >
+		<http:listener-connection host="0.0.0.0" port="8086" />
+	</http:listener-config>
+	
+	<os:object-store name="Object_store" doc:name="Object store" doc:id="5eeb6782-c918-4731-8343-8783b303a0ac" maxEntries="100" entryTtl="5" entryTtlUnit="MINUTES" expirationInterval="5" />
+	<os:object-store name="WatermarkStore" doc:name="Object store" doc:id="961be34d-2740-4e22-8621-adb3fa436e15" maxEntries="200" entryTtl="1" entryTtlUnit="MINUTES" expirationInterval="5" expirationIntervalUnit="HOURS" />
+	<db:config name="Database_Config1" doc:name="Database Config" doc:id="927997fd-0ffb-49fc-8a8c-c1da636af954" >
+		<db:generic-connection url="dbc:postgresql://localhost:5455/postgresDB" driverClassName="org.postgresql.Driver" user="postgres" password="postgres"/>
+	</db:config>
+
+	<!-- [STUDIO:"salesforce-postgres-integrationFlow"]	<flow name="salesforce-postgres-integrationFlow" doc:id="ff4b5092-e051-44eb-9db2-83396f3541af" >
+		<http:listener doc:name="Listener" doc:id="de744e72-70d3-44d5-b9bb-de13c26cd76f" config-ref="HTTP_Listener_config_int" path="/integration"/>
+		
+    <db:select doc:name="Select" doc:id="356f6f6d-a55f-4ead-adaf-6cde298fc295" config-ref="Database_Config">
+			<db:sql><![CDATA[select max(creationdate) from cust_post_details]]></db:sql>
+		</db:select>
+		<ee:transform doc:name="Transform Message" doc:id="fc05edbe-8256-4d2e-b45e-5f213cbffb1d">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+&#45;&#45;-
+payload.max[0]]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<set-variable value="#[payload]" doc:name="Set Variable" doc:id="e725652e-9fb2-47e6-a3ea-5bc3298a68da" variableName="maxCreationDate"/>
+		<os:store key="watermark" failOnNullValue="false" objectStore="WatermarkStore">
+        <os:value><![CDATA[#[vars.maxCreationDate]]]></os:value>
+    </os:store>
+		<os:retrieve key="watermark" objectStore="WatermarkStore" target="watermark">
+        <os:default-value><![CDATA[2023-08-01T00:00:00.000Z]]></os:default-value>
+    </os:retrieve>
+		<ee:transform doc:name="Transform Message1" doc:id="f7d4b564-143d-429b-8677-2d10d574f0e0" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+&#45;&#45;-
+vars.watermark]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		
+	</flow> [STUDIO] -->
+<!-- [STUDIO:"salesforce-postgres-integrationFlow1"]	<flow name="salesforce-postgres-integrationFlow1" doc:id="e1d4fa55-2c15-4702-96af-434c50c6c9b7" >
+				<db:select doc:name="Select" doc:id="398c7c90-925b-4de4-8d89-53175c992efd" config-ref="Database_Config">
+			<db:sql><![CDATA[select max(creationdate) from cust_post_details]]></db:sql>
+		</db:select>
+				<ee:transform doc:name="Transform Message" doc:id="530bbee8-b645-4083-9c55-54a7ab763e18">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+&#45;&#45;-
+payload.max[0] replace "T" with " "]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<set-variable value="#[payload]" doc:name="maxCreationDate" doc:id="88e09366-de69-4075-b7d9-e82941612908" variableName="maxCreationDate" />
+		<os:retrieve doc:name="Retrieve" doc:id="ae1b0c36-5261-4972-9401-b328dc1897ba" key="watermark" objectStore="WatermarkStore" target="watermark" >
+			<os:default-value ><![CDATA[2023-08-01 15:16:49.998088]]></os:default-value>
+		</os:retrieve>
+		<salesforce:upsert doc:name="Upsert" doc:id="ed34a3c4-481b-404d-a3c5-cc58ecb7aa10" config-ref="Salesforce_Config" objectType="CustomerONB__c" externalIdFieldName="CustId__c">
+					<salesforce:records><![CDATA[#[[{
+	firstName__c: payload.firstname,
+	lastName__c: payload.lastname,
+	contactType__c: payload.contacttype,
+	email__c: payload.email,
+	acceptDataPolicy__c: payload.acceptdatapolicy,
+	acceptPIC__c: payload.acceptpic,
+	captchatoken__c: payload.captchatoken,
+	countryCode__c: payload.countrycode,
+	locale__c: payload.locale,
+	mobile__c: payload.mobile,
+	password__c: payload.password,
+	recieveClaimsettle__c: payload.recieveclaimsettle,
+	recieveNews__c: payload.recievenews ,
+    	custId__c: payload.custid
+}]]]]></salesforce:records>
+				</salesforce:upsert>
+		<choice doc:name="Choice" doc:id="e0152591-2561-44e9-ae9f-65394217d3f8" >
+			<when expression="#[vars.watermark &gt; vars.maxCreationDate]">
+				<db:select doc:name="Select" doc:id="6bf57078-1bdc-4716-a6f0-fafd34ac848c" config-ref="Database_Config" >
+					<db:sql ><![CDATA[#["select firstName,lastName,contactType,countryCode,mobile,passwrd,email,confirmPassword,acceptDataPolicy,recieveNews,acceptPIC,locale,captchatoken,recieveClaimsettle from cust_post_details where creationdate > to_timestamp(" ++ "'" ++ vars.watermark ++ "'," ++ "'YYYY-MM-DD HH24:MI:SS')"]]]></db:sql>
+				</db:select>
+				<ee:transform doc:name="Transform Message" doc:id="fd49b758-0679-4cb9-8715-156b17ac762e" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+&#45;&#45;-
+payload]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</when>
+			<otherwise >
+				<os:store doc:name="Store" doc:id="6d758c6a-eb87-4104-bbe9-ca9e9a9621e1" key="watermark" failOnNullValue="false" objectStore="WatermarkStore">
+					<os:value><![CDATA[#[vars.maxCreationDate]]]></os:value>
+				</os:store>
+				<db:select doc:name="Select" doc:id="ae9ad78c-2865-4fc6-90ba-49c7f4949904" config-ref="Database_Config">
+					<db:sql><![CDATA[#["select firstName,lastName,contactType,countryCode,mobile,passwrd,email,confirmPassword,acceptDataPolicy,recieveNews,acceptPIC,locale,captchatoken,recieveClaimsettle from cust_post_details where creationdate > to_timestamp(" ++ "'" ++ vars.maxCreationdate ++ "'," ++ "'YYYY-MM-DD HH24:MI:SS')"]]]></db:sql>
+				</db:select>
+				<ee:transform doc:name="Transform Message" doc:id="69cb3368-23ef-4c21-a22d-cb38861f03fa" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+&#45;&#45;-
+payload]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+				<salesforce:upsert objectType="CustomerONB__c" externalIdFieldName="CustId__c" doc:name="Upsert" doc:id="b815e294-de34-4e3c-bf49-0a8fd7bc1476" config-ref="Salesforce_Config" >
+					<salesforce:records ><![CDATA[#[[{
+	firstName__c: payload.firstname,
+	lastName__c: payload.lastname,
+	contactType__c: payload.contacttype,
+	email__c: payload.contact.email,
+	acceptDataPolicy__c: payload.acceptdatapolicy ,
+	acceptPIC__c: payload.acceptpic ,
+	captchatoken__c: payload.captchatoken,
+	countryCode__c: payload.contact.countrycode,
+	locale__c: payload.locale,
+	mobile__c: payload.contact.mobile,
+	password__c: payload.password,
+	recieveClaimsettle__c: payload.recieveclaimsettle ,
+	recieveNews__c: payload.recieveNews ,
+    	custId__c: "21"
+}]]]]></salesforce:records>
+				</salesforce:upsert>
+			</otherwise>
+		</choice>
+	</flow> [STUDIO] -->
+	
+</mule>
